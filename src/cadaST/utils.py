@@ -172,5 +172,3 @@ def iou_score(arr1, arr2):
     return np.sum(intersection) / np.sum(union)
 
 
-def iou_rank(adata):
-    pass
