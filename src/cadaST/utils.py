@@ -97,7 +97,7 @@ def get_svg(adata, n_top, kneighbors=18):
     """
     Get the top n features according to the laplacian score
     """
-    sim_graph = SimilarityGraph(adata, kneighbors=kneighbors)
+    sim_graph = SimilarityGraph(adata, kneighbors=kneighbors) # type: ignore
     lapScore = lap_score(adata.X, csr_matrix(sim_graph.neighbor_corr))
     top_feature = feature_ranking(lapScore)
     genelist = adata.var_names[top_feature[:n_top]]
@@ -171,4 +171,13 @@ def iou_score(arr1, arr2):
     union = np.logical_or(arr1, arr2)
     return np.sum(intersection) / np.sum(union)
 
+def iou_rank(cluster, labels):
+    cluster = cluster[:, np.newaxis]
+    intersection = np.logical_and(cluster, labels).sum(axis=0)
+    union = np.logical_or(cluster, labels).sum(axis=0)
 
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ious = np.where(union != 0, intersection / union, 0)
+
+    ranked_indices=np.argsort(ious)[::-1]
+    return ranked_indices
