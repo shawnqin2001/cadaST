@@ -172,7 +172,7 @@ class SimilarityGraph:
         return
 
     def _delta_energies(self, indices, new_labels, beta):
-        neighborIndices = self.graph[indices].indices.reshape(-1, self.kneighbors)
+        neighbor_indices = self.graph[indices].indices.flatten()
         means, vars = self.cls_para[1 - new_labels].T
         new_means, new_vars = self.cls_para[new_labels].T
         sqrt_2_pi_vars = np.sqrt(2 * np.pi * vars)
@@ -184,16 +184,11 @@ class SimilarityGraph:
             - ((self.exp[indices] - means) ** 2 / (2 * vars))
         )
 
-        delta_energy_neighbors = (
-            beta
-            * 2
-            * np.sum(
-                self._difference(new_labels, self.labels[neighborIndices])
-                - self._difference(self.labels[indices], self.labels[neighborIndices]),
-                axis=0,
-            )
-            / self.kneighbors
-        )
+        current_labels = self.labels[indices]
+        neighbor_labels = self.labels[neighbor_indices]
+        same = (current_labels == neighbor_labels).sum()
+        terms = self.kneighbors - 2*same
+        delta_energy_neighbors = beta * 2 * terms / self.kneighbors
 
         return delta_energy_consts + delta_energy_neighbors
 
@@ -205,17 +200,15 @@ class SimilarityGraph:
         if self.verbose:
             print("Initializing neighbor correlation matrix")
         pca = PCA(n_comp).fit_transform(StandardScaler().fit_transform(self.matrix))
+        pca_centered = pca - np.mean(pca, axis=1, keepdims=True)
+        norms = np.linalg.norm(pca_centered, axis=1)
+        norms[norms == 0] = 1e-5
+        pca_normalized = pca_centered / norms[:, np.newaxis]
+        # Get graph edges
         graph_coo = self.graph.tocoo()
         row_indices = graph_coo.row
         col_indices = graph_coo.col
-        correlations = np.exp(
-            np.array(
-                [
-                    np.corrcoef(pca[row], pca[col])[0, 1]
-                    for row, col in zip(row_indices, col_indices)
-                ]
-            )
-        )
+        correlations = np.exp((pca_normalized[row_indices] * pca_normalized[col_indices]).sum(axis=1))
         neighbor_corr = csr_matrix(
             (correlations, (row_indices, col_indices)),
             shape=(self.cell_num, self.cell_num),
@@ -237,16 +230,15 @@ class SimilarityGraph:
         theta : float
             Scaling factor for off-diagonal entries where labels do not match.
         """
+
         neighbor_corr_coo = self.neighbor_corr.tocoo()
         row_indices = neighbor_corr_coo.row
         col_indices = neighbor_corr_coo.col
         data = neighbor_corr_coo.data
-        new_data = np.zeros_like(data)
 
         diff_label = self.labels[row_indices] != self.labels[col_indices]
-
-        new_data[diff_label] = data[diff_label] * theta
-        new_data[~diff_label] = data[~diff_label]
+        new_data = data.copy()
+        new_data[diff_label] *=  theta
 
         self.adj_matrix = self._csr_normalize(
             csr_matrix(
