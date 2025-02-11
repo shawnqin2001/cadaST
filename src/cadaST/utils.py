@@ -144,13 +144,11 @@ def refine_label(adata, radius=25, key="mclust"):
     return new_type
 
 
-def clustering(adata, n_clusters, method="mclust", refine=False, **kwargs):
+def clustering(adata, n_clusters, method="mclust", refine=False, dims=18, refine_neibors=18):
     """
     Clustering adata using the mclust algorithm
     """
 
-    dims = 15 if "n_comps" not in kwargs else kwargs["dims"]
-    radius = 18 if "radius" not in kwargs else kwargs["radius"]
     sc.tl.pca(adata, n_comps=dims)
     if method == "mclust":
         print("Clustering using mclust")
@@ -163,7 +161,7 @@ def clustering(adata, n_clusters, method="mclust", refine=False, **kwargs):
         adata.obs["domain"] = adata.obs["leiden"]
     if refine:
         print("Refining the clustering results by majority voting")
-        adata.obs["domain"] = refine_label(adata, radius=radius, key=method)
+        adata.obs["domain"] = refine_label(adata, radius=refine_neighbor, key=method)
 
 
 def iou_score(arr1, arr2):
