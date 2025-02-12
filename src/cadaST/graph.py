@@ -69,7 +69,7 @@ class SimilarityGraph:
         neighbor_corr.setdiag(1)
         smoothed_exp = neighbor_corr.dot(self.exp)
         gmm = GaussianMixture(n_components=2).fit(smoothed_exp.reshape(-1, 1))
-        means, covs = gmm.means_.ravel(), gmm.covariances_.ravel() # type: ignore
+        means, covs = gmm.means_.ravel(), gmm.covariances_.ravel()  # type: ignore
         self.cls_para = np.column_stack((means, covs))
         self.labels = gmm.predict(smoothed_exp.reshape(-1, 1))
         self._label_resort()
@@ -89,6 +89,7 @@ class SimilarityGraph:
         graph = (
             NearestNeighbors(n_neighbors=kneighbors).fit(coord).kneighbors_graph(coord)
         )
+        self.cell_neighbors = graph.indices.reshape(self.cell_num, kneighbors)
         return graph
 
     def _label_resort(self):
@@ -172,7 +173,7 @@ class SimilarityGraph:
         return
 
     def _delta_energies(self, indices, new_labels, beta):
-        neighborIndices = self.graph[indices].indices.reshape(-1, self.kneighbors)
+        neighborIndices = self.cell_neighbors
         means, vars = self.cls_para[1 - new_labels].T
         new_means, new_vars = self.cls_para[new_labels].T
         sqrt_2_pi_vars = np.sqrt(2 * np.pi * vars)
