@@ -185,11 +185,16 @@ class SimilarityGraph:
             - ((self.exp[indices] - means) ** 2 / (2 * vars))
         )
 
-        current_labels = self.labels[indices]
-        neighbor_labels = self.labels[neighbor_indices]
-        same = (current_labels == neighbor_labels).sum()
-        terms = self.kneighbors - 2*same
-        delta_energy_neighbors = beta * 2 * terms / self.kneighbors
+        delta_energy_neighbors = (
+            beta
+            * 2
+            * np.sum(
+                self._difference(new_labels, self.labels[neighbor_indices])
+                - self._difference(self.labels[indices], self.labels[neighbor_indices]),
+                axis=0,
+            )
+            / self.kneighbors
+        )
 
         return delta_energy_consts + delta_energy_neighbors
 
@@ -209,7 +214,9 @@ class SimilarityGraph:
         graph_coo = self.graph.tocoo()
         row_indices = graph_coo.row
         col_indices = graph_coo.col
-        correlations = np.exp((pca_normalized[row_indices] * pca_normalized[col_indices]).sum(axis=1))
+        correlations = np.exp(
+            (pca_normalized[row_indices] * pca_normalized[col_indices]).sum(axis=1)
+        )
         neighbor_corr = csr_matrix(
             (correlations, (row_indices, col_indices)),
             shape=(self.cell_num, self.cell_num),
@@ -239,7 +246,7 @@ class SimilarityGraph:
 
         diff_label = self.labels[row_indices] != self.labels[col_indices]
         new_data = data.copy()
-        new_data[diff_label] *=  theta
+        new_data[diff_label] *= theta
 
         self.adj_matrix = self._csr_normalize(
             csr_matrix(

@@ -1,6 +1,7 @@
 import numpy as np
 import scanpy as sc
-import ot
+
+# import ot
 from .graph import SimilarityGraph
 from scipy.sparse import csr_matrix
 
@@ -117,34 +118,36 @@ def data_preprocess(adata, min_cells=3, top_hvg=None):
     return adata
 
 
-def refine_label(adata, radius=25, key="mclust"):
-    """
-    Refine the clustering results by majority voting
-    """
-    n_neigh = radius
-    new_type = []
-    old_type = adata.obs[key].values
+# def refine_label(adata, radius=25, key="mclust"):
+#     """
+#     Refine the clustering results by majority voting
+#     """
+#     n_neigh = radius
+#     new_type = []
+#     old_type = adata.obs[key].values
 
-    # calculate distance
-    position = adata.obsm["spatial"]
-    distance = ot.dist(position, position, metric="euclidean")
+#     # calculate distance
+#     position = adata.obsm["spatial"]
+#     distance = ot.dist(position, position, metric="euclidean")
 
-    n_cell = distance.shape[0]
+#     n_cell = distance.shape[0]
 
-    for i in range(n_cell):
-        vec = distance[i, :]
-        index = vec.argsort()
-        neigh_type = []
-        for j in range(1, n_neigh + 1):
-            neigh_type.append(old_type[index[j]])
-        max_type = max(neigh_type, key=neigh_type.count)
-        new_type.append(max_type)
+#     for i in range(n_cell):
+#         vec = distance[i, :]
+#         index = vec.argsort()
+#         neigh_type = []
+#         for j in range(1, n_neigh + 1):
+#             neigh_type.append(old_type[index[j]])
+#         max_type = max(neigh_type, key=neigh_type.count)
+#         new_type.append(max_type)
 
-    new_type = [str(i) for i in list(new_type)]
-    return new_type
+#     new_type = [str(i) for i in list(new_type)]
+#     return new_type
 
 
-def clustering(adata, n_clusters, method="mclust", refine=False, dims=18, refine_neibors=18):
+def clustering(
+    adata, n_clusters, method="mclust", refine=False, dims=18, refine_neighbors=18
+):
     """
     Clustering adata using the mclust algorithm
     """
@@ -159,14 +162,12 @@ def clustering(adata, n_clusters, method="mclust", refine=False, dims=18, refine
         sc.pp.neighbors(adata)
         sc.tl.leiden(adata, resolution=0.5)
         adata.obs["domain"] = adata.obs["leiden"]
-    if refine:
-        print("Refining the clustering results by majority voting")
-        adata.obs["domain"] = refine_label(adata, radius=refine_neighbor, key=method)
+    # if refine:
+    #     print("Refining the clustering results by majority voting")
+    #     adata.obs["domain"] = refine_label(adata, radius=refine_neighbor, key=method)
 
 
 def iou_score(arr1, arr2):
     intersection = np.logical_and(arr1, arr2)
     union = np.logical_or(arr1, arr2)
     return np.sum(intersection) / np.sum(union)
-
-
