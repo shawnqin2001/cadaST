@@ -1,9 +1,9 @@
 import numpy as np
 import scanpy as sc
 
-# import ot
 from .graph import SimilarityGraph
 from scipy.sparse import csr_matrix
+from sklearn.neighbors import NearestNeighbors
 
 
 def mclust_R(
@@ -118,36 +118,52 @@ def data_preprocess(adata, min_cells=3, top_hvg=None):
     return adata
 
 
-# def refine_label(adata, radius=25, key="mclust"):
-#     """
-#     Refine the clustering results by majority voting
-#     """
-#     n_neigh = radius
-#     new_type = []
-#     old_type = adata.obs[key].values
+def refine_label(adata, radius=25, key="mclust"):
+    """
+    Refine the clustering results by majority voting of neighboring cells.
 
-#     # calculate distance
-#     position = adata.obsm["spatial"]
-#     distance = ot.dist(position, position, metric="euclidean")
+    Parameters:
+        adata (AnnData): Annotated data matrix.
+        radius (int): Number of nearest neighbors to consider for voting.
+        key (str): Key in `adata.obs` where clustering labels are stored.
 
-#     n_cell = distance.shape[0]
+    Returns:
+        list: Refined cluster labels as strings.
+    """
+    old_labels = adata.obs[key].values
+    positions = adata.obsm["spatial"]
 
-#     for i in range(n_cell):
-#         vec = distance[i, :]
-#         index = vec.argsort()
-#         neigh_type = []
-#         for j in range(1, n_neigh + 1):
-#             neigh_type.append(old_type[index[j]])
-#         max_type = max(neigh_type, key=neigh_type.count)
-#         new_type.append(max_type)
+    # Find (radius + 1) nearest neighbors to include the cell itself
+    nbrs = NearestNeighbors(n_neighbors=radius + 1, algorithm="auto").fit(positions)
+    _, indices = nbrs.kneighbors(positions)
 
-#     new_type = [str(i) for i in list(new_type)]
-#     return new_type
+    refined_labels = []
+    for i in range(indices.shape[0]):
+        # Exclude self (first neighbor) and get indices of neighbors
+        neighbor_indices = indices[i, 1:]
+        neighbors = old_labels[neighbor_indices]
+
+        if len(neighbors) == 0:
+            # Fallback to original label if no neighbors found
+            refined_labels.append(str(old_labels[i]))
+            continue
+
+        # Calculate label frequencies and determine majority
+        counts = {}
+        for label in neighbors:
+            counts[label] = counts.get(label, 0) + 1
+
+        max_count = max(counts.values())
+        # Select first label with maximum count (prioritizing closer neighbors)
+        for label in neighbors:
+            if counts[label] == max_count:
+                refined_labels.append(str(label))
+                break
+
+    return refined_labels
 
 
-def clustering(
-    adata, n_clusters, method="mclust", refine=False, dims=18, refine_neighbors=18
-):
+def clustering(adata, n_clusters, method="mclust", refine=False, dims=18, radius=25):
     """
     Clustering adata using the mclust algorithm
     """
@@ -162,9 +178,9 @@ def clustering(
         sc.pp.neighbors(adata)
         sc.tl.leiden(adata, resolution=0.5)
         adata.obs["domain"] = adata.obs["leiden"]
-    # if refine:
-    #     print("Refining the clustering results by majority voting")
-    #     adata.obs["domain"] = refine_label(adata, radius=refine_neighbor, key=method)
+    if refine:
+        print("Refining the clustering results by majority voting")
+        adata.obs["domain"] = refine_label(adata, radius=radius, key=method)
 
 
 def iou_score(arr1, arr2):
