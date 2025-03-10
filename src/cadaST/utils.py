@@ -1,6 +1,7 @@
 import numpy as np
 import scanpy as sc
-import ot
+
+# import ot
 from .graph import SimilarityGraph
 from scipy.sparse import csr_matrix
 
@@ -144,7 +145,9 @@ def refine_label(adata, radius=25, key="mclust"):
     return new_type
 
 
-def clustering(adata, n_clusters, method="mclust", refine=False, dims=18, refine_neibors=18):
+def clustering(
+    adata, n_clusters, method="mclust", refine=False, dims=18, refine_neighbors=18
+):
     """
     Clustering adata using the mclust algorithm
     """
@@ -161,7 +164,7 @@ def clustering(adata, n_clusters, method="mclust", refine=False, dims=18, refine
         adata.obs["domain"] = adata.obs["leiden"]
     if refine:
         print("Refining the clustering results by majority voting")
-        adata.obs["domain"] = refine_label(adata, radius=refine_neighbor, key=method)
+        adata.obs["domain"] = refine_label(adata, radius=refine_neighbors, key=method)
 
 
 def iou_score(arr1, arr2):

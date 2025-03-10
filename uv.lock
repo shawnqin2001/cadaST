@@ -40,6 +40,7 @@ version = "0.0.3"
 source = { editable = "." }
 dependencies = [
     { name = "anndata" },
+    { name = "numpy" },
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "tqdm" },
@@ -48,6 +49,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "anndata", specifier = ">=0.10.9" },
+    { name = "numpy", specifier = ">=2.0.2" },
     { name = "scikit-learn", specifier = ">=1.5.2" },
     { name = "scipy", specifier = ">=1.13.1" },
     { name = "tqdm", specifier = ">=4.66.5" },

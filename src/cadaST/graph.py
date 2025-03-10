@@ -23,7 +23,7 @@ class SimilarityGraph:
         max_iter: int = 3,
         convergency_threshold: float = 1e-5,
         verbose: bool = False,
-    ) ->None:
+    ) -> None:
         self.verbose = verbose
         self.matrix = adata.to_df()
         self.cell_num = adata.shape[0]
@@ -45,7 +45,7 @@ class SimilarityGraph:
     def fit(
         self,
         gene_id: str,
-    ):
+    ) -> None:
         """
         Implement HMRF using ICM-EM
         """
@@ -60,7 +60,7 @@ class SimilarityGraph:
             convergency_threshold=self.convergency_threshold,
         )
 
-    def _initialize_labels(self, init_alpha):
+    def _initialize_labels(self, init_alpha: float) -> None:
         """
         Initialize label with smoothed expression matrix
         """
@@ -69,18 +69,18 @@ class SimilarityGraph:
         neighbor_corr.setdiag(1)
         smoothed_exp = neighbor_corr.dot(self.exp)
         gmm = GaussianMixture(n_components=2).fit(smoothed_exp.reshape(-1, 1))
-        means, covs = gmm.means_.ravel(), gmm.covariances_.ravel() # type: ignore
+        means, covs = gmm.means_.ravel(), gmm.covariances_.ravel()  # type: ignore
         self.cls_para = np.column_stack((means, covs))
         self.labels = gmm.predict(smoothed_exp.reshape(-1, 1))
         self._label_resort()
 
-    def _impute(self):
+    def _impute(self) -> csr_matrix:
         """
         Impute the expression by considering neighbor cells
         """
         return self.adj_matrix.dot(self.exp)
 
-    def _construct_graph(self, coord: np.ndarray, kneighbors: int = 18):
+    def _construct_graph(self, coord: np.ndarray, kneighbors: int = 18) -> csr_matrix:
         """
         Construct gene graph based on the nearest neighbors
         """
@@ -89,9 +89,10 @@ class SimilarityGraph:
         graph = (
             NearestNeighbors(n_neighbors=kneighbors).fit(coord).kneighbors_graph(coord)
         )
+        self.cell_neighbors = graph.indices.reshape(self.cell_num, kneighbors)
         return graph
 
-    def _label_resort(self):
+    def _label_resort(self) -> None:
         """
         Set the label with the highest mean as 1
         """
@@ -100,7 +101,6 @@ class SimilarityGraph:
         new_labels = np.zeros_like(self.labels)
         new_labels[self.labels == cls_label] = 1
         self.labels = new_labels
-        return
 
     def _run_icmem(
         self,
@@ -109,7 +109,7 @@ class SimilarityGraph:
         icm_iter: int = 2,
         max_iter: int = 3,
         convergency_threshold: float = 1e-5,
-    ):
+    ) -> None:
         """
         Run ICM-EM algorithm to update gene panel's labels and integrate neighbor spots expression
         """
@@ -171,8 +171,8 @@ class SimilarityGraph:
             iteration += 1
         return
 
-    def _delta_energies(self, indices, new_labels, beta):
-        neighbor_indices = self.graph[indices].indices.flatten()
+    def _delta_energies(self, indices, new_labels, beta) -> np.ndarray:
+        neighbor_indices = self.cell_neighbors
         means, vars = self.cls_para[1 - new_labels].T
         new_means, new_vars = self.cls_para[new_labels].T
         sqrt_2_pi_vars = np.sqrt(2 * np.pi * vars)
@@ -184,15 +184,20 @@ class SimilarityGraph:
             - ((self.exp[indices] - means) ** 2 / (2 * vars))
         )
 
-        current_labels = self.labels[indices]
-        neighbor_labels = self.labels[neighbor_indices]
-        same = (current_labels == neighbor_labels).sum()
-        terms = self.kneighbors - 2*same
-        delta_energy_neighbors = beta * 2 * terms / self.kneighbors
+        delta_energy_neighbors = (
+            beta
+            * 2
+            * np.sum(
+                self._difference(new_labels, self.labels[neighbor_indices])
+                - self._difference(self.labels[indices], self.labels[neighbor_indices]),
+                axis=0,
+            )
+            / self.kneighbors
+        )
 
         return delta_energy_consts + delta_energy_neighbors
 
-    def _neighbor_init(self, alpha, n_comp=10) -> csr_matrix:
+    def _neighbor_init(self, alpha, n_comp=15) -> csr_matrix:
         """
         Initialize the neighboring correlation matrix
         """
@@ -208,7 +213,9 @@ class SimilarityGraph:
         graph_coo = self.graph.tocoo()
         row_indices = graph_coo.row
         col_indices = graph_coo.col
-        correlations = np.exp((pca_normalized[row_indices] * pca_normalized[col_indices]).sum(axis=1))
+        correlations = np.exp(
+            (pca_normalized[row_indices] * pca_normalized[col_indices]).sum(axis=1)
+        )
         neighbor_corr = csr_matrix(
             (correlations, (row_indices, col_indices)),
             shape=(self.cell_num, self.cell_num),
@@ -221,7 +228,7 @@ class SimilarityGraph:
 
         return neighbor_corr
 
-    def _update_adj_matrix(self, theta: float):
+    def _update_adj_matrix(self, theta: float) -> None:
         """
         Efficiently update the adjacency matrix based on the labels.
 
@@ -238,7 +245,7 @@ class SimilarityGraph:
 
         diff_label = self.labels[row_indices] != self.labels[col_indices]
         new_data = data.copy()
-        new_data[diff_label] *=  theta
+        new_data[diff_label] *= theta
 
         self.adj_matrix = self._csr_normalize(
             csr_matrix(

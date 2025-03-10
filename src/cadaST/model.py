@@ -2,7 +2,6 @@ import numpy as np
 from anndata import AnnData
 from joblib import Parallel, delayed
 from tqdm import tqdm
-
 from .graph import SimilarityGraph
 from .utils import feature_ranking, lap_score
 
@@ -95,7 +94,7 @@ class CadaST:
         return self.adata
 
     @staticmethod
-    def _process_gene(model, gene):
+    def _process_gene(model, gene) -> tuple:
         model.fit(
             gene_id=gene,
         )
