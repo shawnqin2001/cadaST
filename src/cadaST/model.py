@@ -82,7 +82,6 @@ class CadaST:
         if (self.n_top is not None) and (self.n_top < len(self.gene_list)):
             self.filter_genes()
         print("Start cadaST model fitting")
-
         results = Parallel(n_jobs=self.n_jobs)(
             delayed(self._process_gene)(
                 self.graph,

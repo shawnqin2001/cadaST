@@ -23,7 +23,7 @@ class SimilarityGraph:
         max_iter: int = 3,
         convergency_threshold: float = 1e-5,
         verbose: bool = False,
-    ):
+    ) ->None:
         self.verbose = verbose
         self.matrix = adata.to_df()
         self.cell_num = adata.shape[0]
