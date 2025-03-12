@@ -98,7 +98,7 @@ def get_svg(adata, n_top, kneighbors=18):
     """
     Get the top n features according to the laplacian score
     """
-    sim_graph = SimilarityGraph(adata, kneighbors=kneighbors)
+    sim_graph = SimilarityGraph(adata, kneighbors=kneighbors) # type: ignore
     lapScore = lap_score(adata.X, csr_matrix(sim_graph.neighbor_corr))
     top_feature = feature_ranking(lapScore)
     genelist = adata.var_names[top_feature[:n_top]]
@@ -120,47 +120,29 @@ def data_preprocess(adata, min_cells=3, top_hvg=None):
 
 def refine_label(adata, radius=25, key="mclust"):
     """
-    Refine the clustering results by majority voting of neighboring cells.
-
-    Parameters:
-        adata (AnnData): Annotated data matrix.
-        radius (int): Number of nearest neighbors to consider for voting.
-        key (str): Key in `adata.obs` where clustering labels are stored.
-
-    Returns:
-        list: Refined cluster labels as strings.
+    Refine the clustering results by majority voting
     """
-    old_labels = adata.obs[key].values
-    positions = adata.obsm["spatial"]
+    n_neigh = radius
+    new_type = []
+    old_type = adata.obs[key].values
 
-    # Find (radius + 1) nearest neighbors to include the cell itself
-    nbrs = NearestNeighbors(n_neighbors=radius + 1, algorithm="auto").fit(positions)
-    _, indices = nbrs.kneighbors(positions)
+    # calculate distance
+    position = adata.obsm["spatial"]
+    distance = ot.dist(position, position, metric="euclidean")
 
-    refined_labels = []
-    for i in range(indices.shape[0]):
-        # Exclude self (first neighbor) and get indices of neighbors
-        neighbor_indices = indices[i, 1:]
-        neighbors = old_labels[neighbor_indices]
+    n_cell = distance.shape[0]
 
-        if len(neighbors) == 0:
-            # Fallback to original label if no neighbors found
-            refined_labels.append(str(old_labels[i]))
-            continue
+    for i in range(n_cell):
+        vec = distance[i, :]
+        index = vec.argsort()
+        neigh_type = []
+        for j in range(1, n_neigh + 1):
+            neigh_type.append(old_type[index[j]])
+        max_type = max(neigh_type, key=neigh_type.count)
+        new_type.append(max_type)
 
-        # Calculate label frequencies and determine majority
-        counts = {}
-        for label in neighbors:
-            counts[label] = counts.get(label, 0) + 1
-
-        max_count = max(counts.values())
-        # Select first label with maximum count (prioritizing closer neighbors)
-        for label in neighbors:
-            if counts[label] == max_count:
-                refined_labels.append(str(label))
-                break
-
-    return refined_labels
+    new_type = [str(i) for i in list(new_type)]
+    return new_type
 
 
 def clustering(adata, n_clusters, method="mclust", refine=False, dims=18, radius=25):
@@ -187,3 +169,14 @@ def iou_score(arr1, arr2):
     intersection = np.logical_and(arr1, arr2)
     union = np.logical_or(arr1, arr2)
     return np.sum(intersection) / np.sum(union)
+
+def iou_rank(cluster, labels):
+    cluster = cluster[:, np.newaxis]
+    intersection = np.logical_and(cluster, labels).sum(axis=0)
+    union = np.logical_or(cluster, labels).sum(axis=0)
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ious = np.where(union != 0, intersection / union, 0)
+
+    ranked_indices=np.argsort(ious)[::-1]
+    return ranked_indices

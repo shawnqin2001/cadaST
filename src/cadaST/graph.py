@@ -23,7 +23,7 @@ class SimilarityGraph:
         max_iter: int = 3,
         convergency_threshold: float = 1e-5,
         verbose: bool = False,
-    ):
+    ) -> None:
         self.verbose = verbose
         self.matrix = adata.to_df()
         self.cell_num = adata.shape[0]
@@ -45,7 +45,7 @@ class SimilarityGraph:
     def fit(
         self,
         gene_id: str,
-    ):
+    ) -> None:
         """
         Implement HMRF using ICM-EM
         """
@@ -60,7 +60,7 @@ class SimilarityGraph:
             convergency_threshold=self.convergency_threshold,
         )
 
-    def _initialize_labels(self, init_alpha):
+    def _initialize_labels(self, init_alpha: float) -> None:
         """
         Initialize label with smoothed expression matrix
         """
@@ -74,13 +74,13 @@ class SimilarityGraph:
         self.labels = gmm.predict(smoothed_exp.reshape(-1, 1))
         self._label_resort()
 
-    def _impute(self):
+    def _impute(self) -> csr_matrix:
         """
         Impute the expression by considering neighbor cells
         """
         return self.adj_matrix.dot(self.exp)
 
-    def _construct_graph(self, coord: np.ndarray, kneighbors: int = 18):
+    def _construct_graph(self, coord: np.ndarray, kneighbors: int = 18) -> csr_matrix:
         """
         Construct gene graph based on the nearest neighbors
         """
@@ -92,7 +92,7 @@ class SimilarityGraph:
         self.cell_neighbors = graph.indices.reshape(self.cell_num, kneighbors)
         return graph
 
-    def _label_resort(self):
+    def _label_resort(self) -> None:
         """
         Set the label with the highest mean as 1
         """
@@ -101,7 +101,6 @@ class SimilarityGraph:
         new_labels = np.zeros_like(self.labels)
         new_labels[self.labels == cls_label] = 1
         self.labels = new_labels
-        return
 
     def _run_icmem(
         self,
@@ -110,7 +109,7 @@ class SimilarityGraph:
         icm_iter: int = 2,
         max_iter: int = 3,
         convergency_threshold: float = 1e-5,
-    ):
+    ) -> None:
         """
         Run ICM-EM algorithm to update gene panel's labels and integrate neighbor spots expression
         """
@@ -172,7 +171,7 @@ class SimilarityGraph:
             iteration += 1
         return
 
-    def _delta_energies(self, indices, new_labels, beta):
+    def _delta_energies(self, indices, new_labels, beta) -> np.ndarray:
         neighbor_indices = self.cell_neighbors
         means, vars = self.cls_para[1 - new_labels].T
         new_means, new_vars = self.cls_para[new_labels].T
@@ -198,7 +197,7 @@ class SimilarityGraph:
 
         return delta_energy_consts + delta_energy_neighbors
 
-    def _neighbor_init(self, alpha, n_comp=10) -> csr_matrix:
+    def _neighbor_init(self, alpha, n_comp=15) -> csr_matrix:
         """
         Initialize the neighboring correlation matrix
         """
@@ -229,7 +228,7 @@ class SimilarityGraph:
 
         return neighbor_corr
 
-    def _update_adj_matrix(self, theta: float):
+    def _update_adj_matrix(self, theta: float) -> None:
         """
         Efficiently update the adjacency matrix based on the labels.
 

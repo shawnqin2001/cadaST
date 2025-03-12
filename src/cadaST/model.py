@@ -2,7 +2,6 @@ import numpy as np
 from anndata import AnnData
 from joblib import Parallel, delayed
 from tqdm import tqdm
-
 from .graph import SimilarityGraph
 from .utils import feature_ranking, lap_score
 
@@ -82,7 +81,6 @@ class CadaST:
         if (self.n_top is not None) and (self.n_top < len(self.gene_list)):
             self.filter_genes()
         print("Start cadaST model fitting")
-
         results = Parallel(n_jobs=self.n_jobs)(
             delayed(self._process_gene)(
                 self.graph,
@@ -96,7 +94,7 @@ class CadaST:
         return self.adata
 
     @staticmethod
-    def _process_gene(model, gene):
+    def _process_gene(model, gene) -> tuple:
         model.fit(
             gene_id=gene,
         )
