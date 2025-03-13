@@ -108,7 +108,7 @@ class SimilarityGraph:
         theta,
         icm_iter: int = 2,
         max_iter: int = 3,
-        convergency_threshold: float = 1e-5,
+        convergency_threshold: float = 1e-4,
     ) -> None:
         """
         Run ICM-EM algorithm to update gene panel's labels and integrate neighbor spots expression
